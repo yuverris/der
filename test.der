@@ -1,0 +1,47 @@
+jism No9ta {
+    x: ra9m;
+    y: ra9m;
+};
+
+dalaton no9_plus(n: No9ta): ra9m {
+    rje3 n.x + n.y;
+};
+
+dalaton test(a: ra9m, b: ra9m): ra9m {
+    ila a < b {
+        rje3 6;
+    } awla {
+        rje3 9;
+    };
+};
+
+dalaton mini_calc(a: ra9m, op: ktba, b: ra9m): ra9m {
+    op == "+" ?? rje3 a + b;
+    op == "-" ?? rje3 a - b;
+    op == "/" ?? rje3 a / b;
+    op == "*" ?? rje3 a * b;
+};
+
+dalaton main(): ra9m {
+    test(5, 6) |> kteb();
+
+    "Salam, 3alam!" |> kteb();
+    dir x: ra9m = "dkhel x: " |> dkhel() |> l_ra9m();
+    dir op: ktba = "dkhel oper: " |> dkhel();
+    dir y: ra9m = "dkhel y: " |> dkhel() |> l_ra9m();
+
+    mini_calc(x, op, y) |> kteb("résulat howa: ");
+
+    dir g: [ra9m; 5] = [1, 2, 4, 7, 9, 20];
+
+    lkola x: g {
+        kteb("hehe: ", x);
+    };
+    lkola x: 0..4 {
+        kteb("hoho: ", x, g[x]);
+    };
+
+    g |> lkola_wa7ed(x => kteb("haha", x));
+
+    rje3 0;
+};
