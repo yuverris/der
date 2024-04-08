@@ -330,6 +330,9 @@ namespace der
                     m_expect_or(TOKENS::TOKEN_CLOSE_BRACKET, m_current(), "Expected ']' after array type.");
                     return std::make_unique<types::Array>(std::move(ty), size);
                 }
+                case TOKENS::TOKEN_MULTIPLY:
+                    m_advance();
+                    return std::make_unique<types::Pointer>(parse_type());
                 }
             }
 

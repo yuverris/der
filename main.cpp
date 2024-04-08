@@ -63,7 +63,7 @@ dalaton main(): ra9m {
     hehe(9);
     "Salam, 3alam!" |> kteb();
 
-    dir x: *ra9m = 78;
+    dir x: *ra9m = &78;
     x = 89 + -7 * +9;
     dir z: [ra9m; 3] = [7,8,9];
     dir y: harf = "azerty"[7];

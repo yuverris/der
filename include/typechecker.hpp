@@ -466,6 +466,12 @@ namespace der
                 {
                     der_debug("ara ara struct instance");
                     return check_struct_instance(dynamic_cast<types::StructInstance *>(type.get()), loc);
+                } else if(type->get_ty() == types::TYPES::POINTER_DEREF) {
+                    der_debug("ptr deref called");
+                    return check_ptr_deref(dynamic_cast<types::PointerDeref*>(type.get()), loc);
+                } else if(type->get_ty() == types::TYPES::GET_ADDRESS) {
+                    der_debug("get address called");
+                    return check_get_address(type.get(), loc);
                 }
                 else
                 {
@@ -581,6 +587,14 @@ namespace der
                 {
                     throw types::CompilationErr("dot operator only valable on structs and enums", loc);
                 }
+            }
+            std::shared_ptr<types::TypeHandle> check_get_address(types::TypeHandle* target, const SourceLoc& loc) {
+                return std::make_shared<types::Pointer>(target->clone());
+
+            }
+
+            std::shared_ptr<types::TypeHandle> check_ptr_deref(types::PointerDeref* ptr, const SourceLoc& loc) {
+                return std::move(ptr->victim);
             }
             // REMINDER NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS
             // NO FOKING IMPLICIT CONVERSIONS NO FOKING IMPLICIT CONVERSIONS NO FOKING IMPLICIT CONVERSIONS

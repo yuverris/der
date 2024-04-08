@@ -187,6 +187,8 @@ namespace der
             }
             bool is_same(TypeHandle *other) const override
             {
+                if(other->get_ty() == TYPES::POINTER)
+                    return victim->is_same(dynamic_cast<Pointer*>(other)->victim.get());
                 return false;
             }
         };
