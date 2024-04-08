@@ -9,7 +9,14 @@ int main()
 {
     std::string src_code = R"(
 
+ti3dad Cmp {
+    AAA, BBB, CCC
+};
 
+jism No9ta {
+    x: ra9m;
+    y: ra9m;
+};
 dalaton dkhel(a: ktba): ktba {
     rje3 "aaa";
 };
@@ -25,30 +32,51 @@ dalaton l_ra9m(a: ktba): ra9m {
 
 dalaton test(a: ra9m, b: ra9m): ra9m {
     ila a < b {
-        rje3 6;
+        rje3 6*7;
     } awla {
         rje3 9;
     };
 };
 
-dalaton hehe(a: ra9m, b: ktba): ra9m {
-    rje3 a < b.len();
+dalaton l7ajm(a: ktba): ra9m {
+    lkola x: 9...99 {
+       rje3 5;
+    };
+    dir y: [ra9m; 5] = [1,7,8,9,7];
+    y[y[7]];
+};
+
+dalaton hehe(a: ra9m): ra9m {
+    rje3 5;
 };
 
 
-dalaton mini_calc(a: ra9m, op: ktba, b: ra9m): ra9m {
-    op == "+" ?? rje3 a + b;
-    op == "-" ?? rje3 a - b;
-    op == "/" ?? rje3 a / b;
-    op == "*" ?? rje3 a * b;
+dalaton mini_calc(a: ra9m, op: harf, b: ra9m): ra9m {
+    op == '+' ?? rje3 a + b;
+    op == '-' ?? rje3 a - b;
+    op == '/' ?? rje3 a / b;
+    op == '*' ?? rje3 a * b;
 };
 
 dalaton main(): ra9m {
-    test(5, 6) |> kteb();
-
-    hehe("ahahahah", 79);
-
+    test(5, 7);
+    hehe(9);
     "Salam, 3alam!" |> kteb();
+
+    dir x: ra9m = 78;
+    x = 89;
+    dir z: [ra9m; 3] = [7,8,9];
+    dir y: harf = "azerty"[7];
+    
+
+    dir f: Cmp = Cmp.AAA;
+
+    dir w: No9ta = jadid No9ta{x: 78, y: 77};
+
+    dir j: ra9m = w.x;
+
+    "uwu";
+    9 == 7;
     
     rje3 0;
 };

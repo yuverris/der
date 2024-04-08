@@ -43,6 +43,8 @@ namespace der
                 return 20;
             case TOKENS::TOKEN_PIPE:
                 return 50;
+            case TOKENS::TOKEN_DOT:
+                return 60;
             default:
                 return 5;
             }
@@ -122,26 +124,77 @@ namespace der
                 return AstInfo(ast::ptr<ast::Expr>(new ast::Variable(name, std::move(value.expr), std::move(ty))), value.loc);
             }
 
-            AstInfo m_parse_struct() {
+            AstInfo m_parse_enum()
+            {
                 der_debug("start");
+                m_expect_or(lexer::TOKENS::TOKEN_IDENTIFIER, m_current(), "Expected identifier after enum declaration.");
+                std::string enum_name = m_current().raw_value;
                 m_advance();
+                m_expect_or(lexer::TOKENS::TOKEN_OPEN_BRACE, m_current(), "Expected '{' after enum identifier.");
+                std::vector<std::string> members{};
+                m_advance();
+                do
+                {
+                    if (m_current().is(lexer::TOKENS::TOKEN_CLOSE_BRACE))
+                        break;
+                    der_debug_e(m_current().raw_value);
+                    m_expect_or(lexer::TOKENS::TOKEN_IDENTIFIER, m_current(), "Expected identifier in enum member");
+                    members.push_back(m_current().raw_value);
+                    m_advance();
+                } while (m_match(lexer::TOKENS::TOKEN_COMMA));
+                der_debug_e(m_current().raw_value);
+                m_expect_or(lexer::TOKENS::TOKEN_CLOSE_BRACE, m_current(), "Expected '}' after enum definition");
+                m_advance();
+                return AstInfo(std::make_unique<ast::Enum>(enum_name, members), m_current().source_loc);
+            }
+            AstInfo m_parse_struct()
+            {
+                der_debug("start");
                 m_expect_or(lexer::TOKENS::TOKEN_IDENTIFIER, m_current(), "Expected identifier after struct definition");
+                std::string struct_name = m_current().raw_value;
                 m_advance();
-                m_expect_or(lexer::TOKENS::TOKEN_OPEN_BRACKET, m_current(), "Expected '{' after identifier.");
+                m_expect_or(lexer::TOKENS::TOKEN_OPEN_BRACE, m_current(), "Expected '{' after identifier.");
+                std::vector<ast::StructMember> members{};
                 m_advance();
-                std::vector<ast::StructMember> members {};
-                do {
+                do
+                {
+                    if (m_current().is(lexer::TOKENS::TOKEN_CLOSE_BRACE))
+                        break;
+                    der_debug_e(m_current().raw_value);
                     m_expect_or(lexer::TOKENS::TOKEN_IDENTIFIER, m_current(), "Expected identifier in struct member");
                     std::string name = m_current().raw_value;
                     m_advance();
                     m_expect_or(lexer::TOKENS::TOKEN_COLON, m_current(), "Expected colon ':' after identifier.");
                     m_advance();
                     auto type = parse_type();
-                    members.push_back(ast::StructMember{.name = name, .type = std::move(type)});
-                } while(m_match(lexer::TOKENS::TOKEN_SEMICOLON));
-                m_expect_or(lexer::TOKENS::TOKEN_CLOSE_BRACKET, m_current(), "Expected } after struct definition");
+                    m_advance();
+                    members.push_back(ast::StructMember(name, std::move(type)));
+                } while (m_match(lexer::TOKENS::TOKEN_SEMICOLON));
+                der_debug_e(m_current().raw_value);
+                m_expect_or(lexer::TOKENS::TOKEN_CLOSE_BRACE, m_current(), "Expected '}' after struct definition");
                 m_advance();
-                return AstInfo(std::make_unique<ast::Struct>(), m_current().source_loc);
+                return AstInfo(std::make_unique<ast::Struct>(struct_name, members), m_current().source_loc);
+            }
+
+            AstInfo parse_for_loop()
+            {
+                m_expect_or(lexer::TOKENS::TOKEN_IDENTIFIER, m_current(), "Expected identifier after for loop");
+                std::string ident = m_current().raw_value;
+                m_advance();
+                m_expect_or(lexer::TOKENS::TOKEN_COLON, m_current(), "Expected colon ':' after identifier, in for loop.");
+                m_advance();
+                auto _begin = parse_expr(0);
+                der_debug_e(m_current().raw_value);
+                m_expect_or(lexer::TOKENS::TOKEN_RANGE, m_current(), "Expected range '...' in for loop.");
+                m_advance();
+                auto _end = parse_expr(0);
+                der_debug_e(m_current().raw_value);
+                m_expect_or(lexer::TOKENS::TOKEN_OPEN_BRACE, m_current(), "Expected '{' after for loop statement.");
+                auto body = parse_mult_stmt();
+                der_debug_e(m_current().raw_value);
+                m_expect_or(lexer::TOKENS::TOKEN_CLOSE_BRACE, m_current(), "Expected '}' after for loop statement.");
+                m_advance();
+                return AstInfo(std::make_unique<ast::RangedFor<AstInfo>>(ident, _begin.expr->clone(), _end.expr->clone(), body), m_current().source_loc);
             }
             std::vector<ast::ptr<ast::Expr>> m_parse_function_args()
             {
@@ -159,6 +212,30 @@ namespace der
                 m_advance();
                 der_debug_m("fnc call end", m_current().raw_value);
                 return arg_list;
+            }
+
+            AstInfo parse_struct_init()
+            {
+                der_debug("start");
+                std::string name = m_current().raw_value;
+                der_debug_e(m_current().raw_value);
+                m_advance();
+                m_expect_or(lexer::TOKENS::TOKEN_OPEN_BRACE, m_current(), "Expected '{' in struct initialization.");
+                m_advance();
+                std::vector<ast::StructInitializer> inits = {};
+                do
+                {
+                    m_expect_or(lexer::TOKENS::TOKEN_IDENTIFIER, m_current(), "Expected identifier in struct initialization.");
+                    std::string ident = m_current().raw_value;
+                    m_advance();
+                    m_expect_or(lexer::TOKENS::TOKEN_COLON, m_current(), "Expected ':' after identifier in struct initializaiton.");
+                    m_advance();
+                    auto expr = parse_expr(0).expr;
+                    inits.push_back(ast::StructInitializer{.ident = ident, .value = std::move(expr)});
+                } while (m_match(lexer::TOKENS::TOKEN_COMMA));
+                m_expect_or(lexer::TOKENS::TOKEN_CLOSE_BRACE, m_current(), "Expected '}' after struct initialization.");
+                m_advance();
+                return AstInfo(std::make_unique<ast::StructInstance>(name, inits), m_current().source_loc);
             }
 
             AstInfo parse_stmt()
@@ -233,6 +310,8 @@ namespace der
                             return std::make_unique<types::Bool>();
                         else if (v == "walo")
                             return std::make_unique<types::Void>();
+                        else if (v == "harf")
+                            return std::make_unique<types::Character>();
                         else
                             return std::make_unique<types::Identifier>(v);
                     }
@@ -302,6 +381,30 @@ namespace der
                     der_debug("recognized boolean");
                     m_advance();
                     return AstInfo(ast::ptr<ast::Expr>(new ast::Bool(th.raw_value == "sa7i7" ? true : false)), th.source_loc);
+                case TOKENS::TOKEN_STRUCT:
+                {
+                    der_debug("recognized struct");
+                    m_advance();
+                    return m_parse_struct();
+                }
+                case TOKENS::TOKEN_ENUM:
+                {
+                    der_debug("recognized enum");
+                    m_advance();
+                    return m_parse_enum();
+                }
+                case TOKENS::TOKEN_CHAR:
+                {
+                    der_debug("char ssss");
+                    m_advance();
+                    return AstInfo(ast::ptr<ast::Expr>(new ast::Character(th.raw_value.at(0))), th.source_loc);
+                }
+                case TOKENS::TOKEN_FOR:
+                {
+                    der_debug("recognized for loop");
+                    m_advance();
+                    return parse_for_loop();
+                }
                 case TOKENS::TOKEN_IDENTIFIER:
                 {
                     der_debug("recognized identifier");
@@ -327,6 +430,10 @@ namespace der
                 case TOKENS::KEYWORD_DALATON:
                     der_debug("recognized keyword DALATON");
                     return parse_function();
+                case TOKENS::KEYWORD_JADID:
+                    der_debug("recognized keyword JADID");
+                    m_advance();
+                    return parse_struct_init();
                 case TOKENS::TOKEN_RETURN:
                 {
 
@@ -383,6 +490,20 @@ namespace der
                         auto temp = m_parse_function_args();
                         lfs = AstInfo(ast::ptr<ast::Expr>(new ast::FunctionCall(std::move(lfs.expr), temp)), lfs.loc);
                     }
+                    else if (current.is(TOKENS::TOKEN_OPEN_BRACKET))
+                    {
+                        if (get_precedence(current.token) <= prec)
+                        {
+                            break;
+                        }
+                        der_debug("calling subscript parse...");
+                        m_advance();
+                        auto t = std::make_unique<ast::Subscript>(std::move(lfs.expr), parse_expr(0).expr);
+                        m_expect_or(lexer::TOKENS::TOKEN_CLOSE_BRACKET, m_current(), "Expected ']' after subscript operator.");
+                        lfs = AstInfo(std::move(t), lfs.loc);
+                        m_advance();
+                        der_debug_e(lfs.expr->debug());
+                    }
                     else if (current.is(TOKENS::TOKEN_PIPE))
                     {
                         der_debug("PIPE OP encounter.");
@@ -394,6 +515,17 @@ namespace der
                         m_advance();
                         lfs = AstInfo(ast::ptr<ast::Expr>(new ast::PipeOper(std::move(lfs.expr), parse_expr(get_precedence(current.token)).expr)), lfs.loc);
                     }
+                    else if (current.is(TOKENS::TOKEN_EQUAL))
+                    {
+                        der_debug("SET OP encounter.");
+                        if (get_precedence(current.token) <= prec)
+                        {
+                            break;
+                        }
+                        der_debug_e(lfs.expr->debug());
+                        m_advance();
+                        lfs = AstInfo(ast::ptr<ast::Expr>(new ast::SetOper(std::move(lfs.expr), parse_expr(get_precedence(current.token)).expr)), lfs.loc);
+                    }
                     else if (current.is(TOKENS::TOKEN_DOUBLE_QST))
                     {
                         if (get_precedence(current.token) <= prec)
@@ -403,6 +535,18 @@ namespace der
                         der_debug("DOUBLE QST if stmt.");
                         m_advance();
                         lfs = AstInfo(ast::ptr<ast::Expr>(new ast::SmolIfStmt(std::move(lfs.expr), parse_expr(get_precedence(current.token)).expr)), lfs.loc);
+                    }
+                    else if (current.is(TOKENS::TOKEN_DOT))
+                    {
+                        if (get_precedence(current.token) <= prec)
+                        {
+                            break;
+                        }
+                        der_debug("DotOper expr.");
+                        der_debug_e(m_current().raw_value);
+                        m_advance();
+                        lfs = AstInfo(ast::ptr<ast::Expr>(new ast::DotOper(std::move(lfs.expr), parse_expr(get_precedence(current.token)).expr)), lfs.loc);
+                        der_debug(std::format("shit happens: {}", lfs.expr->debug()));
                     }
                     else
                     {
@@ -456,7 +600,7 @@ namespace der
                 m_advance();
                 if (m_current().is(lexer::TOKENS::TOKEN_LESS_THAN))
                 {
-                    throw SyntaxErr("generics are not yet supported (and definitely not because of a bug I couldn't figure out)", m_current().source_loc);
+                    // throw SyntaxErr("generics are not yet supported (and definitely not because of a bug I couldn't figure out)", m_current().source_loc);
                     m_advance();
                     do
                     {

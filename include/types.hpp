@@ -34,6 +34,13 @@ namespace der
             SMOL_IF,
             ARRAY,
             TEMPLATE_PARAM,
+            STRUCT,
+            ENUM,
+            SET_OP,
+            RANGED_FOR,
+            SUBSCRIPT,
+            STRUCT_INSTANCE,
+            ENUM_INSTANCE,
             DUMMY
         };
 
@@ -42,6 +49,8 @@ namespace der
             {TYPES::INTEGER, "ra9m"},
             {TYPES::STRING, "ktba"},
             {TYPES::VOID, "walo"},
+            {TYPES::CHAR, "harf"},
+
         };
 
         struct TypeHandle
@@ -50,8 +59,7 @@ namespace der
             virtual TYPES get_ty() const = 0;
             virtual std::unique_ptr<TypeHandle> clone() const = 0;
 
-            virtual bool is_same(TypeHandle*) const = 0; 
-
+            virtual bool is_same(TypeHandle *) const = 0;
 
             virtual ~TypeHandle() = default;
         };
@@ -74,9 +82,10 @@ namespace der
                 return "Ty.Generic";
             }
 
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
-            } 
+            }
         };
 
         struct ArgType
@@ -103,13 +112,14 @@ namespace der
             }
             std::unique_ptr<TypeHandle> clone() const override
             {
-                return std::make_unique<Integer>(*this);
+                return std::unique_ptr<Integer>(new Integer());
             }
             std::string debug() const override
             {
                 return "Ty.Integer";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return other->get_ty() == TYPES::INTEGER;
             }
         };
@@ -122,13 +132,14 @@ namespace der
             }
             std::unique_ptr<TypeHandle> clone() const override
             {
-                return std::make_unique<String>(*this);
+                return std::unique_ptr<String>(new String());
             }
             std::string debug() const override
             {
                 return "Ty.String";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return other->get_ty() == TYPES::STRING;
             }
         };
@@ -147,7 +158,8 @@ namespace der
             {
                 return "Ty.Bool";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return other->get_ty() == TYPES::BOOL;
             }
         };
@@ -174,7 +186,8 @@ namespace der
             {
                 return "Ty.BinOp";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -201,7 +214,8 @@ namespace der
             {
                 return "Ty.DotOp";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -228,7 +242,8 @@ namespace der
             {
                 return "Ty.PipeOp";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -255,7 +270,8 @@ namespace der
             {
                 return "Ty.SmolIf";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -282,7 +298,127 @@ namespace der
             {
                 return "Ty.LogBinOp";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
+                return false;
+            }
+        };
+
+        struct Character : TypeHandle
+        {
+
+            TYPES get_ty() const override
+            {
+                return TYPES::CHAR;
+            }
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<Character>(*this);
+            }
+            std::string debug() const override
+            {
+                return "Ty.Char";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                return other->get_ty() == TYPES::CHAR;
+            }
+        };
+
+        struct RangedFor : TypeHandle
+        {
+            std::unique_ptr<TypeHandle> f_start;
+            std::unique_ptr<TypeHandle> f_end;
+            std::vector<std::unique_ptr<TypeHandle>> stmts;
+            std::string ident;
+
+            RangedFor(const std::string &ident, std::unique_ptr<TypeHandle> f1, std::unique_ptr<TypeHandle> f2, const std::vector<std::unique_ptr<TypeHandle>> &stmt) : ident(ident), f_start(std::move(f1)), f_end(std::move(f2))
+            {
+                for (auto &e : stmt)
+                {
+                    stmts.push_back(e->clone());
+                }
+            }
+            RangedFor(const RangedFor &other) : ident(other.ident), f_start(other.f_start->clone()), f_end(other.f_end->clone())
+            {
+                for (auto &e : other.stmts)
+                {
+                    stmts.push_back(e->clone());
+                }
+            }
+
+            TYPES get_ty() const override
+            {
+                return TYPES::RANGED_FOR;
+            }
+
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<RangedFor>(*this);
+            }
+
+            std::string debug() const override
+            {
+                return "Ty.RangedFor";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                return false;
+            }
+        };
+
+        struct Subscript : TypeHandle
+        {
+            std::unique_ptr<TypeHandle> target;
+            std::unique_ptr<TypeHandle> inner;
+
+            Subscript(std::unique_ptr<TypeHandle> t, std::unique_ptr<TypeHandle> i) : target(std::move(t)), inner(std::move(i)) {}
+            Subscript(const Subscript &other) : target(other.target->clone()), inner(other.inner->clone()) {}
+
+            TYPES get_ty() const override
+            {
+                return TYPES::SUBSCRIPT;
+            }
+
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<Subscript>(*this);
+            }
+
+            std::string debug() const override
+            {
+                return "Ty.Subscript";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                return false;
+            }
+        };
+
+        struct SetOp : TypeHandle
+        {
+            std::unique_ptr<TypeHandle> lfs;
+            std::unique_ptr<TypeHandle> rfs;
+
+            SetOp(std::unique_ptr<TypeHandle> lfs, std::unique_ptr<TypeHandle> rfs) : lfs(std::move(lfs)), rfs(std::move(rfs)) {}
+
+            SetOp(const SetOp &other) : lfs(other.lfs->clone()), rfs(other.rfs->clone()) {}
+
+            TYPES get_ty() const override
+            {
+                return TYPES::SET_OP;
+            }
+
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<SetOp>(*this);
+            }
+            std::string debug() const override
+            {
+                return "Ty.SetOp";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -309,9 +445,10 @@ namespace der
             {
                 return "Ty.Array";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 std::cout << "ababababababa\n";
-                Array* x = dynamic_cast<Array*>(other);
+                Array *x = dynamic_cast<Array *>(other);
                 std::cout << "bbbbbbbbbbbbbbbb\n";
                 return (ty->get_ty() == x->ty->get_ty()) && (size == x->size);
             }
@@ -322,12 +459,14 @@ namespace der
             std::string ident;
             std::vector<std::unique_ptr<TypeHandle>> elements;
 
-            TemplateParam(const std::string& ident, const std::vector<std::unique_ptr<TypeHandle>>& el): ident(ident) {
-                for(auto& a: el)
+            TemplateParam(const std::string &ident, const std::vector<std::unique_ptr<TypeHandle>> &el) : ident(ident)
+            {
+                for (auto &a : el)
                     elements.push_back(a->clone());
             }
-            TemplateParam(const TemplateParam& other): ident(other.ident) {
-                for(auto& a: other.elements)
+            TemplateParam(const TemplateParam &other) : ident(other.ident)
+            {
+                for (auto &a : other.elements)
                     elements.push_back(a->clone());
             }
 
@@ -344,7 +483,8 @@ namespace der
             {
                 return "Ty.TemplateParam";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -370,7 +510,8 @@ namespace der
             {
                 return "Ty.UnOp";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -381,9 +522,9 @@ namespace der
             std::vector<Generic> generics;
             std::vector<ArgType> args;
             std::vector<std::unique_ptr<TypeHandle>> body;
-            std::unique_ptr<TypeHandle> return_stmt;
+            std::unique_ptr<TypeHandle> ret_ty;
 
-            Function(const std::string &name, const std::vector<Generic> &generics, const std::vector<std::unique_ptr<TypeHandle>> &body, const std::vector<ArgType> &args) : name(name), generics(generics)
+            Function(const std::string &name, const std::vector<Generic> &generics, const std::vector<std::unique_ptr<TypeHandle>> &body, const std::vector<ArgType> &args, std::unique_ptr<TypeHandle> ret_ty) : name(name), generics(generics), ret_ty(std::move(ret_ty))
             {
                 for (auto &k : args)
                     this->args.push_back(k);
@@ -391,10 +532,15 @@ namespace der
                     this->body.push_back(k->clone());
             }
 
-            Function(const Function &fn) : name(fn.name), generics(fn.generics), args(fn.args)
+            Function(const Function &fn) : name(fn.name), generics(fn.generics), args(fn.args), ret_ty(fn.ret_ty->clone())
             {
                 for (auto &k : fn.body)
                     this->body.push_back(k->clone());
+            }
+
+            std::unique_ptr<TypeHandle> clone_ret()
+            {
+                return ret_ty->clone();
             }
 
             TYPES get_ty() const override
@@ -410,7 +556,8 @@ namespace der
             {
                 return "Ty.Function";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return other->get_ty() == TYPES::FUNCTION;
             }
         };
@@ -444,7 +591,8 @@ namespace der
             {
                 return "Ty.Fcall";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -472,35 +620,90 @@ namespace der
             {
                 return "Ty.Var";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
 
+        struct StructMember
+        {
+            std::string name;
+            std::unique_ptr<types::TypeHandle> type;
+            StructMember(const std::string &s, std::unique_ptr<types::TypeHandle> ty) : name(s), type(std::move(ty)) {}
+            StructMember(const StructMember &sm) : name(sm.name), type(sm.type->clone()) {}
+        };
         struct Struct : TypeHandle
         {
             std::string name;
-            std::vector<ast::StructMember> members;
+            std::vector<StructMember> members;
 
-            Struct(const std::string &name, const std::vector<ast::StructMember>& vecs) : name(name) {}
+            Struct(const std::string &name, const std::vector<StructMember> &vecs) : name(name), members(vecs) {}
 
-            Struct(const Variable &other) : name(other.name) {}
+            Struct(const Struct &other) : name(other.name), members(other.members) {}
 
             TYPES get_ty() const override
             {
-                return TYPES::VAR;
+                return TYPES::STRUCT;
             }
 
             std::unique_ptr<TypeHandle> clone() const override
             {
-                return std::make_unique<Variable>(*this);
+                return std::make_unique<Struct>(*this);
             }
             std::string debug() const override
             {
-                return "Ty.Var";
+                return "Ty.Struct";
             }
-            bool is_same(TypeHandle* other) const override {
-                return false;
+            bool is_same(TypeHandle *other) const override
+            {
+                return true;
+            }
+        };
+
+        struct Enum : TypeHandle
+        {
+            std::string name;
+            std::vector<std::string> members;
+
+            Enum(const std::string &n, const std::vector<std::string> &members) : name(n), members(members) {}
+            Enum(const Enum &other) : name(other.name), members(other.members) {}
+
+            TYPES get_ty() const override
+            {
+                return TYPES::ENUM;
+            }
+
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<Enum>(*this);
+            }
+            std::string debug() const override
+            {
+                return "Ty.Enum";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                if (other->get_ty() == TYPES::ENUM)
+                {
+                    Enum *tr = dynamic_cast<Enum *>(other);
+                    if (name != tr->name)
+                        return false;
+                    if (members.size() != tr->members.size())
+                        return false;
+                    for (size_t i = 0; i < members.size(); ++i)
+                        if (members.at(i) != tr->members.at(i))
+                            return false;
+                    return true;
+                }
+                else if (other->get_ty() == TYPES::ENUM_INSTANCE)
+                {
+                    return other->is_same(this->clone().get());
+                }
+                else
+                {
+                    return false;
+                }
             }
         };
 
@@ -545,7 +748,8 @@ namespace der
             {
                 return "Ty.Ident";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -585,7 +789,8 @@ namespace der
                 return "Ty.If";
             }
 
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -604,7 +809,8 @@ namespace der
             {
                 return "Ty.Lmao";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };
@@ -622,10 +828,85 @@ namespace der
             {
                 return "Ty.Void";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return other->get_ty() == TYPES::VOID;
             }
         };
+
+        struct StructInitializer
+        {
+            std::string ident;
+            std::unique_ptr<TypeHandle> value;
+        };
+        struct StructInstance : TypeHandle
+        {
+            std::string name;
+            std::vector<StructInitializer> inits;
+            StructInstance(const std::string &s, const std::vector<StructInitializer> &i) : name(s)
+            {
+                for (auto &x : i)
+                    inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
+            }
+            StructInstance(const StructInstance &other) : name(other.name)
+            {
+                for (auto &x : other.inits)
+                    inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
+            }
+            std::string debug() const override
+            {
+                return std::format("Ty.StructInit {}", name);
+            }
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<StructInstance>(*this);
+            }
+            TYPES get_ty() const override
+            {
+                return TYPES::STRUCT_INSTANCE;
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                return false;
+            }
+        };
+
+        struct EnumInstance : TypeHandle
+        {
+            Enum en;
+            std::string value;
+            EnumInstance(const Enum &en, const std::string &c) : en(en), value(c) {}
+            EnumInstance(const EnumInstance &e) : en(e.en), value(e.value) {}
+
+            TYPES get_ty() const override
+            {
+                return TYPES::ENUM_INSTANCE;
+            }
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<EnumInstance>(*this);
+            }
+            std::string debug() const override
+            {
+                return "Ty.EnumInst";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                if (other->get_ty() == TYPES::ENUM_INSTANCE)
+                {
+                    return en.is_same(dynamic_cast<EnumInstance *>(other));
+                }
+                else if (other->get_ty() == TYPES::ENUM)
+                {
+                    return en.is_same(dynamic_cast<Enum *>(other));
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        };
+
         struct Return : TypeHandle
         {
             std::unique_ptr<TypeHandle> ty;
@@ -643,7 +924,8 @@ namespace der
             {
                 return "Ty.Return";
             }
-            bool is_same(TypeHandle* other) const override {
+            bool is_same(TypeHandle *other) const override
+            {
                 return false;
             }
         };

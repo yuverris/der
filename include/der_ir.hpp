@@ -49,7 +49,7 @@ namespace der
             std::unique_ptr<Expr> lfs;
             std::unique_ptr<Expr> rfs;
             std::string op;
-            Binary(std::unique_ptr<Expr> lfs, const std::string& op, std::unique_ptr<Expr> rfs) : lfs(std::move(lfs)), op(op), rfs(std::move(rfs)) {}
+            Binary(std::unique_ptr<Expr> lfs, const std::string &op, std::unique_ptr<Expr> rfs) : lfs(std::move(lfs)), op(op), rfs(std::move(rfs)) {}
             Binary(const Binary &other) : lfs(other.lfs->clone()), rfs(other.rfs->clone()), op(other.op) {}
             std::string value() override
             {
@@ -66,7 +66,7 @@ namespace der
             std::unique_ptr<Expr> lfs;
             std::unique_ptr<Expr> rfs;
             std::string op;
-            Logical(std::unique_ptr<Expr> lfs, const std::string& op, std::unique_ptr<Expr> rfs) : lfs(std::move(lfs)), op(op), rfs(std::move(rfs)) {}
+            Logical(std::unique_ptr<Expr> lfs, const std::string &op, std::unique_ptr<Expr> rfs) : lfs(std::move(lfs)), op(op), rfs(std::move(rfs)) {}
             Logical(const Logical &other) : lfs(other.lfs->clone()), rfs(other.rfs->clone()), op(other.op) {}
             std::string value() override
             {
@@ -129,15 +129,17 @@ namespace der
             {
                 return std::make_unique<Array>(*this);
             }
-            std::string value() override {
+            std::string value() override
+            {
                 std::string out = "{";
-                for(auto& x: values) out += std::format("{},", x->value());
-                if(values.size() > 0) out.pop_back();
+                for (auto &x : values)
+                    out += std::format("{},", x->value());
+                if (values.size() > 0)
+                    out.pop_back();
                 out += "}";
                 return out;
             }
         };
-
 
         struct String : Expr
         {
@@ -151,6 +153,20 @@ namespace der
             std::unique_ptr<Expr> clone() const override
             {
                 return std::make_unique<String>(*this);
+            }
+        };
+        struct Char : Expr
+        {
+            char val;
+            Char(char val) : val(val) {}
+            Char(const Char &other) : val(other.val) {}
+            std::string value() override
+            {
+                return std::format("'{}'", val);
+            }
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<Char>(*this);
             }
         };
 
@@ -220,6 +236,94 @@ namespace der
                 return std::make_unique<Variable>(*this);
             }
         };
+        struct SetOp : Expr
+        {
+            std::unique_ptr<Expr> target;
+            std::unique_ptr<Expr> _value;
+            SetOp(std::unique_ptr<Expr> target, std::unique_ptr<Expr> v) : target(std::move(target)), _value(std::move(v)) {}
+            SetOp(const SetOp &other) : target(other.target->clone()), _value(other._value->clone()) {}
+            std::string value() override
+            {
+                return std::format("{} = {}", target->value(), _value->value());
+            }
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<SetOp>(*this);
+            }
+        };
+
+        struct RangedFor : Expr
+        {
+            std::unique_ptr<Expr> init;
+            std::unique_ptr<Expr> goal;
+            std::string ident;
+            std::vector<std::unique_ptr<Expr>> body;
+
+            RangedFor(std::unique_ptr<Expr> init, std::unique_ptr<Expr> goal, const std::string &str, const std::vector<std::unique_ptr<Expr>> &body) : init(std::move(init)), goal(std::move(goal)), ident(str)
+            {
+                for (auto &x : body)
+                    this->body.push_back(x->clone());
+            }
+            RangedFor(const RangedFor &other) : init(other.init->clone()), goal(other.goal->clone()), ident(other.ident)
+            {
+                for (auto &x : other.body)
+                    body.push_back(x->clone());
+            }
+
+            std::string value() override
+            {
+                std::string out = std::format("for(int {} = {}; {}<{}; ++{}) {{\n", ident, init->value(), ident, goal->value(), ident);
+                for (auto &s : body)
+                    out += std::format("{};\n", s->value());
+                out += "}\n";
+                return out;
+            }
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<RangedFor>(*this);
+            }
+        };
+
+        struct Subscript : Expr
+        {
+            std::unique_ptr<Expr> target;
+            std::unique_ptr<Expr> inner;
+
+            Subscript(std::unique_ptr<Expr> t, std::unique_ptr<Expr> i) : target(std::move(t)), inner(std::move(i)) {}
+            Subscript(const Subscript &other) : target(other.target->clone()), inner(other.inner->clone()) {}
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<Subscript>(*this);
+            }
+
+            std::string value() override
+            {
+                return std::format("{}[{}]", target->value(), inner->value());
+            }
+        };
+
+        struct Dot : Expr
+        {
+            std::unique_ptr<Expr> lfs;
+            std::unique_ptr<Expr> rfs;
+
+            Dot(std::unique_ptr<Expr> lfs, std::unique_ptr<Expr> rfs) : lfs(std::move(lfs)), rfs(std::move(rfs)) {}
+            Dot(const Dot &other) : lfs(other.lfs->clone()), rfs(other.rfs->clone()) {}
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<Dot>(*this);
+            }
+
+            std::string value() override
+            {
+                return std::format("{}.{}", lfs->value(), rfs->value());
+            }
+        };
+
         struct ArrayVariable : Expr
         {
             std::string ty;
@@ -283,6 +387,95 @@ namespace der
                 return std::make_unique<Function>(*this);
             }
         };
+
+        struct StructMember
+        {
+            std::string name;
+            std::string type;
+        };
+
+        struct Struct : Expr
+        {
+            std::string name;
+            std::vector<StructMember> members;
+            Struct(const std::string &name, const std::vector<StructMember> &vecs) : name(name), members(vecs)
+            {
+            }
+            Struct(const Struct &other) : name(other.name), members(other.members)
+            {
+            }
+
+            std::string value() override
+            {
+                std::string out = std::format("struct {} {{\n", name);
+                for (auto &x : members)
+                    out += std::format("{} {};\n", x.type, x.name);
+                out += "};\n";
+                return out;
+            }
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<Struct>(*this);
+            }
+        };
+        struct StructInitializer
+        {
+            std::string ident;
+            std::unique_ptr<Expr> value;
+        };
+        struct StructInstance : Expr
+        {
+            std::vector<StructInitializer> inits;
+            StructInstance(const std::vector<StructInitializer> &i)
+            {
+                for (auto &x : i)
+                    inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
+            }
+            StructInstance(const StructInstance &other)
+            {
+                for (auto &x : other.inits)
+                    inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
+            }
+            std::string value() override {
+                std::string out = "{";
+                for(auto& x: inits)
+                    out += std::format(".{} = {},", x.ident, x.value->value());
+                if(inits.size() > 0) out.pop_back();
+                out += "}";
+                return out;
+            }
+            std::unique_ptr<Expr> clone() const override {
+                return std::make_unique<StructInstance>(*this);
+            }
+        };
+
+        struct Enum : Expr
+        {
+            std::string name;
+            std::vector<std::string> members;
+            Enum(const std::string &name, const std::vector<std::string> &vecs) : name(name), members(vecs)
+            {
+            }
+            Enum(const Enum &other) : name(other.name), members(other.members)
+            {
+            }
+
+            std::string value() override
+            {
+                std::string out = std::format("enum {} {{\n", name);
+                for (auto &x : members)
+                    out += std::format("{}_{};\n", name, x);
+                out += "};\n";
+                return out;
+            }
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<Enum>(*this);
+            }
+        };
+
         struct If : Expr
         {
             std::unique_ptr<Expr> cond;

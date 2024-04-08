@@ -1,3 +1,10 @@
+dalaton main(): ra9m {
+    kteb("Salam, 3alam!");
+    rje3 0;
+};
+
+
+
 jism No9ta {
     x: ra9m;
     y: ra9m;
@@ -15,11 +22,31 @@ dalaton test(a: ra9m, b: ra9m): ra9m {
     };
 };
 
+ti3dad Cmp {
+    EQ, LT, GT
+};
+
+dalaton l7ajm(a: ktba): ra9m {
+    lkola i: inf...inf {
+        ila a[i] == '\0' {
+            rje3 i;
+        }
+    }
+}
+
+dalaton mo9arana(a: ktba, b: ktba): Cmp {
+    dir len_a: ra9m = l7ajm(a);
+    dir len_b: ra9m = l7ajm(b);
+    len_a == len_b ?? rje3 Cmp.EQ;
+    len_a > len_b ?? rje3 Cmp.GT;
+    len_a < len_b ?? rje3 Cmp.LT;
+}
+
 dalaton mini_calc(a: ra9m, op: ktba, b: ra9m): ra9m {
-    op == "+" ?? rje3 a + b;
-    op == "-" ?? rje3 a - b;
-    op == "/" ?? rje3 a / b;
-    op == "*" ?? rje3 a * b;
+    op == '+' ?? rje3 a + b;
+    op == '-' ?? rje3 a - b;
+    op == '/' ?? rje3 a / b;
+    op == '*' ?? rje3 a * b;
 };
 
 dalaton main(): ra9m {
@@ -33,15 +60,9 @@ dalaton main(): ra9m {
     mini_calc(x, op, y) |> kteb("résulat howa: ");
 
     dir g: [ra9m; 5] = [1, 2, 4, 7, 9, 20];
-
-    lkola x: g {
-        kteb("hehe: ", x);
-    };
-    lkola x: 0..4 {
+    lkola x: 0...4 {
         kteb("hoho: ", x, g[x]);
     };
-
-    g |> lkola_wa7ed(x => kteb("haha", x));
 
     rje3 0;
 };

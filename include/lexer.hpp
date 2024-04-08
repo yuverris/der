@@ -57,6 +57,11 @@ namespace der
             TOKEN_IMPORT,
             TOKEN_RETURN,
             TOKEN_STRUCT,
+            TOKEN_ENUM,
+            TOKEN_RANGE,
+            TOKEN_CHAR,
+            TOKEN_FOR,
+            KEYWORD_JADID,
             TOKEN_DOUBLE_QST
         };
 
@@ -71,7 +76,8 @@ namespace der
             {TOKENS::TOKEN_GREATER_THAN, ">"},
             {TOKENS::TOKEN_EQUALITY, "=="},
             {TOKENS::TOKEN_DOUBLE_QST, "??"},
-        };
+            {TOKENS::TOKEN_RANGE, "..."},
+            {TOKENS::TOKEN_DOT, "."}};
         struct TokenHandle
         {
             TOKENS token;
@@ -176,8 +182,14 @@ namespace der
                             token = TOKENS::TOKEN_RETURN;
                         else if (temp == "jbed")
                             token = TOKENS::TOKEN_IMPORT;
-                        else if(temp == "jism")
+                        else if (temp == "jism")
                             token = TOKENS::TOKEN_STRUCT;
+                        else if (temp == "ti3dad")
+                            token = TOKENS::TOKEN_ENUM;
+                        else if (temp == "lkola")
+                            token = TOKENS::TOKEN_FOR;
+                        else if (temp == "jadid")
+                            token = TOKENS::KEYWORD_JADID;
                         else
                             token = TOKENS::TOKEN_IDENTIFIER;
 
@@ -252,9 +264,43 @@ namespace der
                         local_loc.column += 1;
                         m_output.push_back(TokenHandle{.token = TOKENS::TOKEN_COMMA, .raw_value = ",", .source_loc = local_loc});
                         break;
-                    case '.':
+                    case '\'':
+                    {
+
                         local_loc.column += 1;
-                        m_output.push_back(TokenHandle{.token = TOKENS::TOKEN_DOT, .raw_value = ".", .source_loc = local_loc});
+                        char a = m_consume();
+                        std::cout << a << ' ' << m_current() << '\n';
+                        if (m_current() != '\'')
+                        {
+                            throw "expected \"'\" quote after character";
+                        }
+                        m_index += 1;
+                        m_output.push_back(TokenHandle{.token = TOKENS::TOKEN_CHAR, .raw_value = std::format("{}", a), .source_loc = local_loc});
+                        break;
+                    }
+                    case '.':
+                        if ((m_index + 1) < m_input.size())
+                        {
+                            if (m_input.at(m_index) == '.' && m_input.at(m_index + 1) == '.')
+                            {
+                                std::cout << "so true and real\n";
+                                local_loc.column += 3;
+                                m_index += 2;
+                                m_output.push_back(TokenHandle{.token = TOKENS::TOKEN_RANGE, .raw_value = "...", .source_loc = local_loc});
+                            }
+                            else
+                            {
+
+                                local_loc.column += 1;
+                                m_output.push_back(TokenHandle{.token = TOKENS::TOKEN_DOT, .raw_value = ".", .source_loc = local_loc});
+                            }
+                        }
+                        else
+                        {
+
+                            local_loc.column += 1;
+                            m_output.push_back(TokenHandle{.token = TOKENS::TOKEN_DOT, .raw_value = ".", .source_loc = local_loc});
+                        }
                         break;
                     case '"':
                     {

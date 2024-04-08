@@ -48,6 +48,31 @@ namespace der
                 return std::unique_ptr<types::TypeHandle>(new types::BinaryOp(left->get_ty(), right->get_ty()));
             }
         };
+        // expr = expr;
+        struct SetOper : Expr
+        {
+            ptr<Expr> left;
+            ptr<Expr> right;
+
+            SetOper(ptr<Expr> l, ptr<Expr> r) : left(std::move(l)), right(std::move(r)) {}
+
+            SetOper(const SetOper &bin) : left(bin.left->clone()), right(bin.right->clone()) {}
+
+            std::string debug() const override
+            {
+                return std::format("[Set Op: {} = {}]", left->debug(), right->debug());
+            }
+
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<SetOper>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                return std::unique_ptr<types::TypeHandle>(new types::SetOp(left->get_ty(), right->get_ty()));
+            }
+        };
 
         struct DotOper : Expr
         {
@@ -73,6 +98,115 @@ namespace der
                 return std::unique_ptr<types::TypeHandle>(new types::DotOp(left->get_ty(), right->get_ty()));
             }
         };
+        template <class T>
+        struct RangedFor : Expr
+        {
+            std::unique_ptr<Expr> f_start;
+            std::unique_ptr<Expr> f_end;
+            std::vector<T> body;
+            std::string ident;
+
+            RangedFor(const std::string &ident, std::unique_ptr<Expr> f1, std::unique_ptr<Expr> f2, const std::vector<T> &body) : ident(ident), f_start(std::move(f1)), f_end(std::move(f2))
+            {
+                for (auto &x : body)
+                    this->body.push_back(T(x.expr->clone(), x.loc));
+            }
+            RangedFor(const RangedFor &other) : ident(other.ident), f_start(other.f_start->clone()), f_end(other.f_end->clone())
+            {
+                for (auto &x : other.body)
+                    body.push_back(T(x.expr->clone(), x.loc));
+            }
+
+            std::string debug() const override
+            {
+                std::string out = std::format("[Ranged {} to {}\n", f_start->debug(), f_end->debug());
+                for (auto &x : body)
+                    out += std::format("{}\n", x.expr->debug());
+                return out;
+            }
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<RangedFor>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                std::vector<std::unique_ptr<types::TypeHandle>> stmts{};
+                for (auto &e : body)
+                    stmts.push_back(e.expr->get_ty()->clone());
+                return std::unique_ptr<types::TypeHandle>(new types::RangedFor(ident, f_start->get_ty()->clone(), f_end->get_ty()->clone(), stmts));
+            }
+        };
+
+        struct Character : Expr
+        {
+            char val;
+
+            Character(char c) : val(c) {}
+            Character(const Character &o) : val(o.val) {}
+
+            std::string debug() const override
+            {
+                return std::format("[Char {}]", val);
+            }
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<Character>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                return std::make_unique<types::Character>();
+            }
+        };
+
+        struct Subscript : Expr
+        {
+            std::unique_ptr<Expr> target;
+            std::unique_ptr<Expr> inner;
+
+            Subscript(std::unique_ptr<Expr> t, std::unique_ptr<Expr> i) : target(std::move(t)), inner(std::move(i)) {}
+            Subscript(const Subscript &other) : target(other.target->clone()), inner(other.inner->clone()) {}
+
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<Subscript>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                return std::unique_ptr<types::TypeHandle>(new types::Subscript(target->get_ty(), inner->get_ty()));
+            }
+
+            std::string debug() const override
+            {
+                return std::format("[Subscript t: {}, in: {}]", target->debug(), inner->debug());
+            }
+        };
+        // struct RangeOper : Expr
+        // {
+        //     ptr<Expr> left;
+        //     ptr<Expr> right;
+
+        //     RangeOper(ptr<Expr> l, ptr<Expr> r) : left(std::move(l)), right(std::move(r)) {}
+
+        //     RangeOper(const RangeOper &bin) : left(bin.left->clone()), right(bin.right->clone()) {}
+
+        //     std::string debug() const override
+        //     {
+        //         return std::format("[RangeOper Op: {} {}]", left->debug(), right->debug());
+        //     }
+
+        //     ptr<Expr> clone() const override
+        //     {
+        //         return std::make_unique<DotOper>(*this);
+        //     }
+
+        //     std::unique_ptr<types::TypeHandle> get_ty() const override
+        //     {
+        //         return std::unique_ptr<types::TypeHandle>(new types::DotOp(left->get_ty(), right->get_ty()));
+        //     }
+        // };
 
         struct PipeOper : Expr
         {
@@ -415,32 +549,71 @@ namespace der
 
             std::unique_ptr<types::TypeHandle> get_ty() const override
             {
-    
+
                 return std::make_unique<types::Array>(values.at(0)->get_ty(), values.size());
             }
         };
 
-        struct StructMember {
+        struct StructMember
+        {
             std::string name;
             std::unique_ptr<types::TypeHandle> type;
+            StructMember(const std::string &s, std::unique_ptr<types::TypeHandle> ty) : name(s), type(std::move(ty)) {}
+            StructMember(const StructMember &sm) : name(sm.name), type(sm.type->clone()) {}
         };
 
-        struct Struct: Expr {
+        struct Struct : Expr
+        {
+            std::string name;
             std::vector<StructMember> members;
+
+            Struct(const std::string &name, const std::vector<StructMember> &vecs) : name(name), members(vecs) {}
+
+            Struct(const Struct &other) : name(other.name), members(other.members) {}
+
             std::string debug() const override
             {
-                return std::format("[Array len {}]", members.size());
+                return std::format("[Struct len {}]", members.size());
             }
 
             ptr<Expr> clone() const override
             {
-                return std::make_unique<Array>(*this);
+                return std::make_unique<Struct>(*this);
             }
 
             std::unique_ptr<types::TypeHandle> get_ty() const override
             {
-    
-                return std::make_unique<types::Struct>();
+                std::vector<types::StructMember> s{};
+                for (auto &t : members)
+                {
+                    s.push_back(types::StructMember(t.name, t.type->clone()));
+                }
+                return std::unique_ptr<types::TypeHandle>(new types::Struct(name, s));
+            }
+        };
+
+        struct Enum : Expr
+        {
+            std::string name;
+            std::vector<std::string> members;
+
+            Enum(const std::string &name, const std::vector<std::string> &vecs) : name(name), members(vecs) {}
+
+            Enum(const Enum &other) : name(other.name), members(other.members) {}
+
+            std::string debug() const override
+            {
+                return std::format("[Enum len {}]", members.size());
+            }
+
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<Enum>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                return std::make_unique<types::Enum>(name, members);
             }
         };
 
@@ -503,7 +676,7 @@ namespace der
                 for (auto &e : generics)
                     __generics.push_back(types::Generic(e));
                 der_debug_e(std::to_string(body.size()));
-                return std::unique_ptr<types::TypeHandle>(new types::Function(name, __generics, __body, __args));
+                return std::unique_ptr<types::TypeHandle>(new types::Function(name, __generics, __body, __args, ret_ty->clone()));
             }
         };
 
@@ -525,6 +698,39 @@ namespace der
         //     }
         // };
 
+        struct StructInitializer
+        {
+            std::string ident;
+            std::unique_ptr<Expr> value;
+        };
+        struct StructInstance : Expr
+        {
+            std::string name;
+            std::vector<StructInitializer> inits{};
+            StructInstance(const std::string &s, const std::vector<StructInitializer> &i) : name(s)
+            {
+                for (auto &x : i)
+                    inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
+            }
+            StructInstance(const StructInstance &other) : name(other.name)
+            {
+                for (auto &x : other.inits)
+                    inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
+            }
+            std::string debug() const override {
+                return std::format("[StructInit {}]", name);
+            }
+            ptr<Expr> clone() const override {
+                return std::make_unique<StructInstance>(*this);
+            }
+            std::unique_ptr<types::TypeHandle> get_ty() const override {
+                std::vector<types::StructInitializer> __inits;
+                for(auto&x: inits)
+                    __inits.push_back(types::StructInitializer{.ident = x.ident, .value = x.value->get_ty()});
+                return std::make_unique<types::StructInstance>(name, __inits);
+            }
+        };
+
         struct Return : Expr
         {
             std::unique_ptr<Expr> ret_expr;
@@ -541,7 +747,7 @@ namespace der
 
             std::unique_ptr<types::TypeHandle> get_ty() const override
             {
-                return std::unique_ptr<types::TypeHandle>(new types::Return(ret_expr->get_ty()));
+                return std::unique_ptr<types::TypeHandle>(new types::Return(std::move(ret_expr->get_ty())));
             }
         };
     }
