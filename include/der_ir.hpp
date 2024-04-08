@@ -60,6 +60,72 @@ namespace der
                 return std::make_unique<Binary>(*this);
             }
         };
+        struct Unary : Expr
+        {
+            std::unique_ptr<Expr> victim;
+            std::string op;
+            Unary(const std::string &op, std::unique_ptr<Expr> rfs) : op(op), victim(std::move(rfs)) {}
+            Unary(const Unary &other) : victim(other.victim->clone()), op(other.op) {}
+            std::string value() override
+            {
+                return std::format("{}{}", op, victim->value());
+            }
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<Unary>(*this);
+            }
+        };
+
+        struct Pointer : Expr
+        {
+            std::unique_ptr<Expr> victim;
+            Pointer(std::unique_ptr<Expr> vic) : victim(std::move(vic)) {}
+            Pointer(const Pointer &ptr) : victim(ptr.victim->clone()) {}
+
+            std::string value() override
+            {
+                return std::format("{}*", victim->value());
+            }
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<Pointer>(*this);
+            }
+        };
+
+        struct PointerDeref : Expr
+        {
+            std::unique_ptr<Expr> victim;
+            PointerDeref(std::unique_ptr<Expr> vic) : victim(std::move(vic)) {}
+            PointerDeref(const PointerDeref &ptr) : victim(ptr.victim->clone()) {}
+
+            std::string value() override
+            {
+                return std::format("*{}", victim->value());
+            }
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<PointerDeref>(*this);
+            }
+        };
+
+        struct GetAddress : Expr
+        {
+            std::unique_ptr<Expr> victim;
+            GetAddress(std::unique_ptr<Expr> vic) : victim(std::move(vic)) {}
+            GetAddress(const GetAddress &ptr) : victim(ptr.victim->clone()) {}
+
+            std::string value() override
+            {
+                return std::format("&{}", victim->value());
+            }
+
+            std::unique_ptr<Expr> clone() const override
+            {
+                return std::make_unique<GetAddress>(*this);
+            }
+        };
 
         struct Logical : Expr
         {
@@ -224,11 +290,15 @@ namespace der
             std::string ty;
             std::string name;
             std::unique_ptr<Expr> _value;
-            Variable(const std::string &ty, const std::string &name, std::unique_ptr<Expr> v) : ty(ty), name(name), _value(std::move(v)) {}
-            Variable(const Variable &other) : name(other.name), ty(other.ty), _value(other._value->clone()) {}
+            bool is_const;
+            Variable(const std::string &ty, const std::string &name, std::unique_ptr<Expr> v, bool is_const = false) : ty(ty), name(name), _value(std::move(v)), is_const(is_const) {}
+            Variable(const Variable &other) : name(other.name), ty(other.ty), _value(other._value->clone()), is_const(other.is_const) {}
             std::string value() override
             {
-                return std::format("{} {} = {}", ty, name, _value->value());
+                if (is_const)
+                    return std::format("const {} {} = {}", ty, name, _value->value());
+                else
+                    return std::format("{} {} = {}", ty, name, _value->value());
             }
 
             std::unique_ptr<Expr> clone() const override
@@ -437,15 +507,18 @@ namespace der
                 for (auto &x : other.inits)
                     inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
             }
-            std::string value() override {
+            std::string value() override
+            {
                 std::string out = "{";
-                for(auto& x: inits)
+                for (auto &x : inits)
                     out += std::format(".{} = {},", x.ident, x.value->value());
-                if(inits.size() > 0) out.pop_back();
+                if (inits.size() > 0)
+                    out.pop_back();
                 out += "}";
                 return out;
             }
-            std::unique_ptr<Expr> clone() const override {
+            std::unique_ptr<Expr> clone() const override
+            {
                 return std::make_unique<StructInstance>(*this);
             }
         };

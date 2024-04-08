@@ -20,6 +20,7 @@ namespace der
             KEYWORD_LAWALO,
             KEYWORD_DALATON,
             KEYWORD_KANT,
+            KEYWORD_TABIT,
             TOKEN_EOF,
             TOKEN_IDENTIFIER,
             TOKEN_INTEGER,
@@ -190,6 +191,8 @@ namespace der
                             token = TOKENS::TOKEN_FOR;
                         else if (temp == "jadid")
                             token = TOKENS::KEYWORD_JADID;
+                        else if (temp == "tabit")
+                            token = TOKENS::KEYWORD_TABIT;
                         else
                             token = TOKENS::TOKEN_IDENTIFIER;
 

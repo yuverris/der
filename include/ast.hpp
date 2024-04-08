@@ -264,6 +264,8 @@ namespace der
             std::string op;
             ptr<Expr> victim;
 
+            UnaryOper(const std::string &op, ptr<Expr> vic) : op(op), victim(std::move(vic)) {}
+
             UnaryOper(const UnaryOper &un) : op(un.op), victim(un.victim->clone()) {}
 
             std::string debug() const override
@@ -279,6 +281,78 @@ namespace der
             std::unique_ptr<types::TypeHandle> get_ty() const override
             {
                 return std::unique_ptr<types::TypeHandle>(new types::UnaryOp(victim->get_ty()));
+            }
+        };
+
+        struct AddressOper : Expr
+        {
+            ptr<Expr> victim;
+
+            AddressOper(ptr<Expr> vic) : victim(std::move(vic)) {}
+
+            AddressOper(const AddressOper &un) : victim(un.victim->clone()) {}
+
+            std::string debug() const override
+            {
+                return std::format("&{}", victim->debug());
+            }
+
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<AddressOper>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                return std::unique_ptr<types::TypeHandle>(new types::GetAddress(victim->get_ty()));
+            }
+        };
+
+        struct PointerDeref : Expr
+        {
+            ptr<Expr> victim;
+
+            PointerDeref(ptr<Expr> vic) : victim(std::move(vic)) {}
+
+            PointerDeref(const PointerDeref &un) : victim(un.victim->clone()) {}
+
+            std::string debug() const override
+            {
+                return std::format("*{}", victim->debug());
+            }
+
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<PointerDeref>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                return std::unique_ptr<types::TypeHandle>(new types::PointerDeref(victim->get_ty()));
+            }
+        };
+
+        struct PointerTy : Expr
+        {
+            ptr<Expr> victim;
+
+            PointerTy(ptr<Expr> vic) : victim(std::move(vic)) {}
+
+            PointerTy(const PointerTy &un) : victim(un.victim->clone()) {}
+
+            std::string debug() const override
+            {
+                return std::format("{}*", victim->debug());
+            }
+
+            ptr<Expr> clone() const override
+            {
+                return std::make_unique<PointerTy>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
+                return std::unique_ptr<types::TypeHandle>(new types::Pointer(victim->get_ty()));
             }
         };
 
@@ -372,14 +446,15 @@ namespace der
             std::string name;
             std::unique_ptr<types::TypeHandle> ty;
             ptr<Expr> value;
+            bool is_const;
 
-            Variable(const std::string &name, ptr<Expr> value, ptr<types::TypeHandle> ty) : name(name), ty(std::move(ty)), value(std::move(value)) {}
+            Variable(const std::string &name, ptr<Expr> value, ptr<types::TypeHandle> ty, bool isc = false) : name(name), ty(std::move(ty)), value(std::move(value)), is_const(isc) {}
 
-            Variable(const Variable &var) : name(var.name), ty(var.ty->clone()), value(var.value->clone()) {}
+            Variable(const Variable &var) : name(var.name), ty(var.ty->clone()), value(var.value->clone()), is_const(var.is_const) {}
 
             std::string debug() const override
             {
-                return std::format("[Variable: {}: {} = {}]", name, ty->debug(), value->debug());
+                return std::format("[Variable(const?: {}): {}: {} = {}]", is_const, name, ty->debug(), value->debug());
             }
 
             std::unique_ptr<types::TypeHandle> get_ty() const override
@@ -717,15 +792,18 @@ namespace der
                 for (auto &x : other.inits)
                     inits.push_back(StructInitializer{.ident = x.ident, .value = x.value->clone()});
             }
-            std::string debug() const override {
+            std::string debug() const override
+            {
                 return std::format("[StructInit {}]", name);
             }
-            ptr<Expr> clone() const override {
+            ptr<Expr> clone() const override
+            {
                 return std::make_unique<StructInstance>(*this);
             }
-            std::unique_ptr<types::TypeHandle> get_ty() const override {
+            std::unique_ptr<types::TypeHandle> get_ty() const override
+            {
                 std::vector<types::StructInitializer> __inits;
-                for(auto&x: inits)
+                for (auto &x : inits)
                     __inits.push_back(types::StructInitializer{.ident = x.ident, .value = x.value->get_ty()});
                 return std::make_unique<types::StructInstance>(name, __inits);
             }

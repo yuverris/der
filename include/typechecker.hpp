@@ -102,6 +102,13 @@ namespace der
                     std::unique_ptr<ir::Expr> rfs = convert_to_ir(std::move(binop->right));
                     return std::make_unique<der::ir::Binary>(std::move(lfs), lexer::tokens_to_str[binop->op], std::move(rfs));
                 }
+                else if (expr->get_ty()->get_ty() == types::TYPES::UNARY_OP)
+                {
+                    ast::UnaryOper *unop = dynamic_cast<ast::UnaryOper *>(expr.get());
+                    der_debug("recognized UNARY IR.");
+                    std::unique_ptr<ir::Expr> victim = convert_to_ir(std::move(unop->victim));
+                    return std::make_unique<der::ir::Unary>(unop->op, std::move(victim));
+                }
                 else if (expr->get_ty()->get_ty() == types::TYPES::LOGICAL_OP)
                 {
                     der_debug("recognized LOG_OP type.");
@@ -139,7 +146,7 @@ namespace der
                         if (var->ty->get_ty() == types::TYPES::IDENT)
                         {
                             std::string id = dynamic_cast<types::Identifier *>(var->ty.get())->ident;
-                            return std::make_unique<der::ir::Variable>(convert_c_type(std::move(local_scope.at(id))), var_name, std::move(var_value));
+                            return std::make_unique<der::ir::Variable>(convert_c_type(std::move(local_scope.at(id))), var_name, std::move(var_value), var->is_const);
                         }
                         else
                         {
@@ -438,6 +445,9 @@ namespace der
                 {
                     der_debug("sdsdsdsdsd");
                     return check_subscript(dynamic_cast<types::Subscript *>(type.get()), loc);
+                } else if(type->get_ty() == types::TYPES::UNARY_OP) {
+                    der_debug("unary op type heheheh");
+                    return check_unary(dynamic_cast<types::UnaryOp*>(type.get()), loc);
                 }
                 else if (type->get_ty() == types::TYPES::PIPE_OP)
                 {
@@ -510,20 +520,21 @@ namespace der
                 if (op->lfs->get_ty() == types::TYPES::IDENT)
                 {
                     types::Identifier *ident = dynamic_cast<types::Identifier *>(op->lfs.get());
+                    auto actual_rfs = get_expr_type(std::move(op->rfs),loc);
                     if (local_scope.find(ident->ident) == local_scope.end())
                     {
                         throw types::CompilationErr(std::format("identifier '{}' is not defined.", ident->ident), loc);
                     }
                     else
                     {
-                        if (local_scope.at(ident->ident)->is_same(op->rfs.get()))
+                        if (local_scope.at(ident->ident)->is_same(actual_rfs.get()))
                         {
                             local_scope[ident->ident] = op->lfs->clone();
                         }
                         else
                         {
                             throw types::CompilationErr(std::format("identifier '{}' is type {}, you are trying to assign it with a {} instead.", ident->ident,
-                                                                    local_scope.at(ident->ident)->debug(), op->rfs->debug()),
+                                                                    local_scope.at(ident->ident)->debug(), actual_rfs->debug()),
                                                         loc);
                         }
                     }
@@ -584,7 +595,18 @@ namespace der
                 auto rfs = get_expr_type(std::move(bin->rfs), loc);
                 if (lfs->get_ty() != rfs->get_ty())
                     throw types::CompilationErr("binary operation not supported by different operand types.", loc);
-                return std::shared_ptr<types::TypeHandle>(std::move(t));
+                return std::shared_ptr<types::TypeHandle>(std::move(lfs));
+            }
+            std::shared_ptr<types::TypeHandle> check_unary(types::UnaryOp *un, const SourceLoc &loc)
+            {
+                der_debug("start");
+                der_debug("lfs check");
+                auto t = un->clone();
+                auto victim = get_expr_type(std::move(un->victim), loc);
+                der_debug_e(victim->debug());
+                if (victim->get_ty() != types::TYPES::INTEGER)
+                    throw types::CompilationErr("unary operations only valable on ints.", loc);
+                return std::make_shared<types::Integer>();
             }
             std::shared_ptr<types::TypeHandle> check_logical_binary(types::LogicalBinaryOp *bin, const SourceLoc &loc)
             {

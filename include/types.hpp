@@ -38,9 +38,12 @@ namespace der
             ENUM,
             SET_OP,
             RANGED_FOR,
+            POINTER,
             SUBSCRIPT,
             STRUCT_INSTANCE,
             ENUM_INSTANCE,
+            POINTER_DEREF,
+            GET_ADDRESS,
             DUMMY
         };
 
@@ -164,6 +167,75 @@ namespace der
             }
         };
 
+        struct Pointer : TypeHandle
+        {
+            std::unique_ptr<TypeHandle> victim;
+            Pointer(std::unique_ptr<TypeHandle> vic) : victim(std::move(vic)) {}
+            Pointer(const Pointer &ptr) : victim(ptr.victim->clone()) {}
+            TYPES get_ty() const override
+            {
+                return TYPES::POINTER;
+            }
+
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<Pointer>(*this);
+            }
+            std::string debug() const override
+            {
+                return "Ty.Pointer";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                return false;
+            }
+        };
+        struct PointerDeref : TypeHandle
+        {
+            std::unique_ptr<TypeHandle> victim;
+            PointerDeref(std::unique_ptr<TypeHandle> vic) : victim(std::move(vic)) {}
+            PointerDeref(const PointerDeref &ptr) : victim(ptr.victim->clone()) {}
+            TYPES get_ty() const override
+            {
+                return TYPES::POINTER_DEREF;
+            }
+
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<PointerDeref>(*this);
+            }
+            std::string debug() const override
+            {
+                return "Ty.PointerDeref";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                return false;
+            }
+        };
+        struct GetAddress : TypeHandle
+        {
+            std::unique_ptr<TypeHandle> victim;
+            GetAddress(std::unique_ptr<TypeHandle> vic) : victim(std::move(vic)) {}
+            GetAddress(const GetAddress &ptr) : victim(ptr.victim->clone()) {}
+            TYPES get_ty() const override
+            {
+                return TYPES::GET_ADDRESS;
+            }
+
+            std::unique_ptr<TypeHandle> clone() const override
+            {
+                return std::make_unique<GetAddress>(*this);
+            }
+            std::string debug() const override
+            {
+                return "Ty.GetAddress";
+            }
+            bool is_same(TypeHandle *other) const override
+            {
+                return false;
+            }
+        };
         struct BinaryOp : TypeHandle
         {
             std::unique_ptr<TypeHandle> lfs;
@@ -602,10 +674,11 @@ namespace der
             std::string name;
             std::unique_ptr<TypeHandle> expected_ty;
             std::unique_ptr<TypeHandle> actual_ty;
+            bool is_const;
 
-            Variable(const std::string &name, std::unique_ptr<TypeHandle> expected_ty, std::unique_ptr<TypeHandle> actual_ty) : name(name), expected_ty(std::move(expected_ty)), actual_ty(std::move(actual_ty)) {}
+            Variable(const std::string &name, std::unique_ptr<TypeHandle> expected_ty, std::unique_ptr<TypeHandle> actual_ty, bool is_const = false) : name(name), expected_ty(std::move(expected_ty)), actual_ty(std::move(actual_ty)), is_const(is_const) {}
 
-            Variable(const Variable &other) : name(other.name), expected_ty(other.expected_ty->clone()), actual_ty(other.actual_ty->clone()) {}
+            Variable(const Variable &other) : name(other.name), expected_ty(other.expected_ty->clone()), actual_ty(other.actual_ty->clone()), is_const(other.is_const) {}
 
             TYPES get_ty() const override
             {

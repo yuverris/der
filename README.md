@@ -13,24 +13,30 @@ dalaton main(): walo {
 
 # TODO
 ## the language itself
-- [ ] generics support
-- [ ] pointers support
-- [x] struct support
+### urgent shit
+- [x] unary ops
 - [X] for loop support
+- [x] struct support
 - [X] enums support
-- [ ] better error messages
-- [ ] constant types
 - [x] subscript operator
-- [x/2] instance handling
-- [ ] use of struct/enums in struct types as well
-- [ ] error handling (no idea how?????!!! but ill figure out)
+- [x] instance handling
+- [x] use of struct/enums in struct types as well
+- [x] use of structs/enum in types
+- [ ] pointers support
+- [ ] better error messages
+- [ ] file source code imports
+- [ ] C compatibility
+- [ ] memory allocation
+
+### not that urgent
+- [ ] generics support
+- [ ] constant types
+- [ ] error handling (no idea how?????!!! but ill figure out prolly requires moving to something like LLVM)
 - [ ] nested scopes
 - [ ] named scopes
-- [x] use of structs/enum in types
-- [x] type check the return type with the actual return statement
 - [ ] implement @skip_ir to skip the IR codegen and write C code instead
-- [ ] file source code imports
-- [ ] unary ops
+- [ ] variadic args
+- [ ] function overloading
 
 ### later???
 - [ ] algebraic enums
@@ -46,5 +52,5 @@ dalaton main(): walo {
 - [ ] Implement safety checks ???
 - [ ] Optimizations
 
-# Language design
-NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS NO IMPLICIT BS 
+# Reminder
+NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, 

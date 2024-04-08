@@ -102,7 +102,7 @@ namespace der
                 return m_current().is(lexer::TOKENS::TOKEN_EOF);
             }
 
-            AstInfo m_parse_variable()
+            AstInfo m_parse_variable(bool is_const = false)
             {
                 der_debug("start");
                 lexer::TokenHandle current = m_current();
@@ -121,7 +121,7 @@ namespace der
                 m_expect_or(lexer::TOKENS::TOKEN_EQUAL, m_current(), "nsiti '='.");
                 m_advance();
                 AstInfo value = parse_expr(0);
-                return AstInfo(ast::ptr<ast::Expr>(new ast::Variable(name, std::move(value.expr), std::move(ty))), value.loc);
+                return AstInfo(ast::ptr<ast::Expr>(new ast::Variable(name, std::move(value.expr), std::move(ty), is_const)), value.loc);
             }
 
             AstInfo m_parse_enum()
@@ -399,6 +399,30 @@ namespace der
                     m_advance();
                     return AstInfo(ast::ptr<ast::Expr>(new ast::Character(th.raw_value.at(0))), th.source_loc);
                 }
+                case TOKENS::TOKEN_PLUS:
+                {
+                    der_debug("unary oper plus");
+                    m_advance();
+                    return AstInfo(ast::ptr<ast::Expr>(new ast::UnaryOper("+", parse_expr(get_precedence(TOKENS::TOKEN_PLUS)).expr)), th.source_loc);
+                }
+                case TOKENS::TOKEN_MINUS:
+                {
+                    der_debug("unary oper minus");
+                    m_advance();
+                    return AstInfo(ast::ptr<ast::Expr>(new ast::UnaryOper("-", parse_expr(get_precedence(TOKENS::TOKEN_MINUS)).expr)), th.source_loc);
+                }
+                case TOKENS::TOKEN_MULTIPLY:
+                {
+                    der_debug("uhhh pointer I guess?");
+                    m_advance();
+                    return AstInfo(ast::ptr<ast::Expr>(new ast::PointerDeref(parse_expr(0).expr)), th.source_loc);
+                }
+                case TOKENS::TOKEN_BIT_AND:
+                {
+                    der_debug("uhhh get address I guess?");
+                    m_advance();
+                    return AstInfo(ast::ptr<ast::Expr>(new ast::AddressOper(parse_expr(0).expr)), th.source_loc);
+                }
                 case TOKENS::TOKEN_FOR:
                 {
                     der_debug("recognized for loop");
@@ -419,6 +443,13 @@ namespace der
                     der_debug("recognized keyword DIR");
                     m_advance();
                     auto var = m_parse_variable();
+                    return var;
+                }
+                case TOKENS::KEYWORD_TABIT:
+                {
+                    der_debug("recognized keyword DIR");
+                    m_advance();
+                    auto var = m_parse_variable(true);
                     return var;
                 }
                 case TOKENS::KEYWORD_ILA:
