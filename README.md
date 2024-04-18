@@ -4,7 +4,16 @@ low level statically typed programming language that compiles to C, based on the
 # code example
 <img src="https://i.imgur.com/PEgIPIJ.png">
 
-it was a very stupid and bad idea to use C as a backend, biggest mistake of the century
+the compiler rn is just a half baked mess, so expect crashes and shit.
+it was a very stupid and bad idea to use C as a backend, biggest mistake of the century.
+
+# compiling
+- requires **C++23**
+```bash
+$ cmake .
+$ make
+$ ./derijac file.der
+```
 
 # language
 ## types
@@ -15,6 +24,7 @@ there are 4 primite types:
 - bool
 - [<type>; N] a static array
 - *<type> a pointer
+
 ## literals
 - `79465` -> ra9m
 - `"salam 3alam!"` -> ktba

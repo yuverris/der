@@ -8,7 +8,12 @@ project(der
         LANGUAGES
         CXX
 )
-
 set(CXX_STANDARD 23)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23")
 
+set(DER_ALLOW_DEBUG OFF)
+if(DER_ALLOW_DEBUG)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDER_ALLOW_DEBUG")
+endif()
 set(default_build_type "Release")
+add_executable(derijac ./main.cpp)
