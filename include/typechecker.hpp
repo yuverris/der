@@ -162,7 +162,12 @@ namespace der
                     std::vector<std::unique_ptr<ir::Expr>> body = {};
                     for (auto &arg : fnc->args)
                     {
-                        c_args.push_back({.ty = convert_c_type(std::move(arg.ty)), .name = arg.ident});
+                        if(arg.ty->get_ty() == types::TYPES::IDENT) {
+                            auto id = dynamic_cast<types::Identifier*>(arg.ty.get());
+                            c_args.push_back({.ty = convert_c_type(local_scope.at(id->ident)), .name = arg.ident});
+                        } else {
+                            c_args.push_back({.ty = convert_c_type(std::move(arg.ty)), .name = arg.ident});
+                        }
                     }
                     for (auto &s : fnc->body)
                     {
@@ -250,6 +255,13 @@ namespace der
                 else if (expr->get_ty()->get_ty() == types::TYPES::DOT_OP)
                 {
                     ast::DotOper *dot_op = dynamic_cast<ast::DotOper *>(expr.get());
+                    auto left = dynamic_cast<ast::Identifier *>(dot_op->left.get());
+                    if (local_scope.find(left->ident) != local_scope.end())
+                    {
+                        auto lookup = local_scope[left->ident];
+                        if (lookup->get_ty() == types::TYPES::ENUM)
+                            return std::make_unique<ir::Ident>(std::format("{}_{}", left->ident, dynamic_cast<ast::Identifier *>(dot_op->right.get())->ident));
+                    }
                     return std::make_unique<ir::Dot>(convert_to_ir(std::move(dot_op->left)), convert_to_ir(std::move(dot_op->right)));
                 }
                 else if (expr->get_ty()->get_ty() == types::TYPES::STRUCT_INSTANCE)
@@ -261,6 +273,14 @@ namespace der
                         inits.push_back(ir::StructInitializer{.ident = x.ident, .value = convert_to_ir(std::move(x.value))});
                     }
                     return std::make_unique<ir::StructInstance>(inits);
+                }
+                else if (expr->get_ty()->get_ty() == types::TYPES::POINTER_DEREF)
+                {
+                    return std::make_unique<ir::PointerDeref>(convert_to_ir(std::move(dynamic_cast<ast::PointerDeref *>(expr.get())->victim)));
+                }
+                else if (expr->get_ty()->get_ty() == types::TYPES::GET_ADDRESS)
+                {
+                    return std::make_unique<ir::GetAddress>(convert_to_ir(std::move(dynamic_cast<ast::AddressOper *>(expr.get())->victim)));
                 }
                 else
                 {
@@ -290,10 +310,15 @@ namespace der
                     return std::format("struct {}", dynamic_cast<types::Struct *>(type.get())->name);
                 case types::TYPES::ENUM:
                     return std::format("enum {}", dynamic_cast<types::Enum *>(type.get())->name);
+                case types::TYPES::POINTER:
+                    return std::format("{}*", convert_c_type(std::move(dynamic_cast<types::Pointer *>(type.get())->victim)));
+                // we do a lil bit of toomfoolery and generate possible UB?
+                case types::TYPES::ARRAY:
+                    return std::format("{}*", convert_c_type(std::move(dynamic_cast<types::Array *>(type.get())->ty)));
                 default:
                 {
                     der_debug_e(type->debug());
-                    return "wiwi";
+                    return "auto";
                 }
                 }
             }
@@ -412,6 +437,11 @@ namespace der
                     der_debug("recognized ARRAY");
                     return type;
                 }
+                else if (type->get_ty() == types::TYPES::STRUCT)
+                {
+                    der_debug("recognized STRUCT");
+                    return type;
+                }
                 else if (type->get_ty() == types::TYPES::CHAR)
                 {
                     der_debug("recognized CHAR");
@@ -445,9 +475,11 @@ namespace der
                 {
                     der_debug("sdsdsdsdsd");
                     return check_subscript(dynamic_cast<types::Subscript *>(type.get()), loc);
-                } else if(type->get_ty() == types::TYPES::UNARY_OP) {
+                }
+                else if (type->get_ty() == types::TYPES::UNARY_OP)
+                {
                     der_debug("unary op type heheheh");
-                    return check_unary(dynamic_cast<types::UnaryOp*>(type.get()), loc);
+                    return check_unary(dynamic_cast<types::UnaryOp *>(type.get()), loc);
                 }
                 else if (type->get_ty() == types::TYPES::PIPE_OP)
                 {
@@ -466,12 +498,21 @@ namespace der
                 {
                     der_debug("ara ara struct instance");
                     return check_struct_instance(dynamic_cast<types::StructInstance *>(type.get()), loc);
-                } else if(type->get_ty() == types::TYPES::POINTER_DEREF) {
+                }
+                else if (type->get_ty() == types::TYPES::POINTER_DEREF)
+                {
                     der_debug("ptr deref called");
-                    return check_ptr_deref(dynamic_cast<types::PointerDeref*>(type.get()), loc);
-                } else if(type->get_ty() == types::TYPES::GET_ADDRESS) {
+                    return check_ptr_deref(dynamic_cast<types::PointerDeref *>(type.get()), loc);
+                }
+                else if (type->get_ty() == types::TYPES::GET_ADDRESS)
+                {
                     der_debug("get address called");
-                    return check_get_address(type.get(), loc);
+                    return check_get_address(dynamic_cast<types::GetAddress *>(type.get()), loc);
+                }
+                else if (type->get_ty() == types::TYPES::POINTER)
+                {
+                    der_debug("ptr hit");
+                    return std::shared_ptr<types::TypeHandle>(get_expr_type(std::move(dynamic_cast<types::Pointer *>(type.get())->victim), loc));
                 }
                 else
                 {
@@ -481,6 +522,7 @@ namespace der
                     return std::unique_ptr<types::TypeHandle>(new types::Dummy());
                 }
             }
+
             void check_var(types::Variable *var, const SourceLoc &loc)
             {
                 der_debug("start");
@@ -526,7 +568,7 @@ namespace der
                 if (op->lfs->get_ty() == types::TYPES::IDENT)
                 {
                     types::Identifier *ident = dynamic_cast<types::Identifier *>(op->lfs.get());
-                    auto actual_rfs = get_expr_type(std::move(op->rfs),loc);
+                    auto actual_rfs = get_expr_type(std::move(op->rfs), loc);
                     if (local_scope.find(ident->ident) == local_scope.end())
                     {
                         throw types::CompilationErr(std::format("identifier '{}' is not defined.", ident->ident), loc);
@@ -544,6 +586,13 @@ namespace der
                                                         loc);
                         }
                     }
+                }
+                else if (op->lfs->get_ty() == types::TYPES::SUBSCRIPT)
+                {
+                    types::Subscript *subs = dynamic_cast<types::Subscript *>(op->lfs.get());
+                    get_expr_type(subs->target->clone(), loc);
+                    if (subs->target->get_ty() != types::TYPES::IDENT && subs->target->get_ty() != types::TYPES::DOT_OP)
+                        throw types::CompilationErr("invalid left hand of rassign", loc);
                 }
                 else
                 {
@@ -567,7 +616,7 @@ namespace der
                         if (x.name == right_ident->ident)
                             return std::move(x.type);
                     }
-                    throw types::CompilationErr("gaygaygyagyagaygaygaygaygaygaygaygay", loc);
+                    throw types::CompilationErr(std::format("struct {} has no member '{}'.", actual_struct->name, right_ident->ident), loc);
                     //  types::Struct* _struct = dynamic_cast<types::Struct*>(left.get());
                 }
                 else if (left->get_ty() == types::TYPES::ENUM)
@@ -583,18 +632,37 @@ namespace der
                     }
                     throw types::CompilationErr(std::format("{} is not a member of enum {}", right_ident->ident, _enum->name), loc);
                 }
+                else if (left->get_ty() == types::TYPES::IDENT)
+                {
+                    types::Identifier *ident = dynamic_cast<types::Identifier *>(left.get());
+                    auto _newdotop = std::make_shared<types::DotOp>(local_scope.at(ident->ident)->clone(), right_ident->clone());
+                    return check_dot_op(_newdotop.get(), loc);
+                }
                 else
                 {
                     throw types::CompilationErr("dot operator only valable on structs and enums", loc);
                 }
             }
-            std::shared_ptr<types::TypeHandle> check_get_address(types::TypeHandle* target, const SourceLoc& loc) {
-                return std::make_shared<types::Pointer>(target->clone());
 
+            // hope this handles it very well SURELY SURELY there are no edge cases here right??
+            std::shared_ptr<types::TypeHandle> check_get_address(types::GetAddress *target, const SourceLoc &loc)
+            {
+                if (target->victim->get_ty() != types::TYPES::IDENT)
+                    throw types::CompilationErr("mf cant get the address of a temporary value.", loc);
+                auto t = std::make_shared<types::Pointer>(get_expr_type(target->victim->clone(), loc)->clone());
+                der_debug(t->debug());
+                return t;
             }
 
-            std::shared_ptr<types::TypeHandle> check_ptr_deref(types::PointerDeref* ptr, const SourceLoc& loc) {
-                return std::move(ptr->victim);
+            std::shared_ptr<types::TypeHandle> check_ptr_deref(types::PointerDeref *ptr, const SourceLoc &loc)
+            {
+                if (ptr->victim->get_ty() != types::TYPES::IDENT)
+                    throw types::CompilationErr("pointer dereferenefefefefefef only works on idetnfiers", loc);
+                auto lookthatshitup = get_expr_type(std::move(ptr->victim), loc);
+                if (lookthatshitup->get_ty() != types::TYPES::POINTER)
+                    throw types::CompilationErr("cannot derefence a non-pointer", loc);
+                auto actualptr = dynamic_cast<types::Pointer *>(lookthatshitup.get());
+                return std::move(actualptr->victim);
             }
             // REMINDER NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS
             // NO FOKING IMPLICIT CONVERSIONS NO FOKING IMPLICIT CONVERSIONS NO FOKING IMPLICIT CONVERSIONS
@@ -701,6 +769,7 @@ namespace der
                 }
                 local_scope = old;
             }
+            // FIXME: bruv use the function body statement source loc instead of just copying the end of function loc u dumbass
             void check_fn(types::Function *fnc, const SourceLoc &loc)
             {
                 // der_debug_e(std::to_string(fnc->body.size()));
@@ -730,9 +799,11 @@ namespace der
                     get_stmt_type(std::move(fnc->body.at(i)), loc);
                 }
                 der_debug_e(std::to_string(ret == nullptr));
+                der_debug_e(ret->debug());
+                der_debug_e(ret_fn_ty->debug());
                 if (ret_fn_ty != nullptr && ret != nullptr)
                     if (!ret->is_same(ret_fn_ty.get()))
-                        throw types::CompilationErr("ezezeze", loc);
+                        throw types::CompilationErr("not same return type heeh", loc);
                 for (auto &a : fnc->args)
                     local_scope.erase(a.ident);
 
@@ -759,11 +830,17 @@ namespace der
                     {
                         for (size_t i = 0; i < fn_callee->args.size(); ++i)
                         {
-                            types::ArgType arg_ty = std::move(fn_callee->args.at(i));
+                            types::ArgType arg_ty = fn_callee->args.at(i);
                             auto call_ty = get_expr_type(std::move(fcall->args.at(i)), loc);
                             der_debug(call_ty->debug());
                             der_debug_e(arg_ty.ident);
-                            if (arg_ty.ty->get_ty() != call_ty->get_ty())
+                            if (arg_ty.ty->get_ty() == types::TYPES::IDENT)
+                            {
+                                auto actual_thing = local_scope.at(dynamic_cast<types::Identifier *>(arg_ty.ty.get())->ident);
+                                if (!actual_thing->is_same(call_ty.get()))
+                                    throw types::CompilationErr(std::format("mismatched argument type, argument '{}' is {}.", arg_ty.ident, actual_thing->debug()), loc);
+                            }
+                            else if (!arg_ty.ty->is_same(call_ty.get()))
                             {
                                 throw types::CompilationErr(std::format("mismatched argument type, argument '{}' is {}.", arg_ty.ident, arg_ty.ty->debug()), loc);
                             }

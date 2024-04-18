@@ -12,16 +12,19 @@ namespace der
     {
         struct SyntaxErr
         {
-            std::string msg;
-            SourceLoc loc;
+            std::string msg = {};
+            SourceLoc loc = {};
             SyntaxErr(const std::string &m, const SourceLoc &loc) : msg(m), loc(loc) {}
         };
 
-        unsigned short get_precedence(lexer::TOKENS tok)
+        inline unsigned short get_precedence(const lexer::TOKENS tok)
         {
             using namespace lexer;
             switch (tok)
             {
+                case TOKENS::TOKEN_OPEN_PAREN:
+                case TOKENS::TOKEN_OPEN_BRACKET:
+                    return 1;
             case TOKENS::TOKEN_OR:
                 return 11;
             case TOKENS::TOKEN_AND:
@@ -54,9 +57,9 @@ namespace der
         {
             ast::ptr<ast::Expr> expr;
             SourceLoc loc;
-            AstInfo(ast::ptr<ast::Expr> expr, SourceLoc loc) : expr(std::move(expr)), loc(loc) {}
+            AstInfo(ast::ptr<ast::Expr> expr, const SourceLoc& loc) : expr(std::move(expr)), loc(loc) {}
             constexpr AstInfo(const AstInfo &a) : expr(a.expr->clone()), loc(a.loc) {}
-            constexpr const AstInfo &operator=(const AstInfo &a)
+            constexpr AstInfo &operator=(const AstInfo &a)
             {
                 expr = a.expr->clone();
                 loc = a.loc;
@@ -68,7 +71,7 @@ namespace der
             std::vector<lexer::TokenHandle> m_input;
             std::vector<AstInfo> m_output;
             size_t m_index = 0;
-            Parser(const std::vector<lexer::TokenHandle> &inp) : m_input(inp), m_output() {}
+            Parser(const std::vector<lexer::TokenHandle> &inp) : m_input(inp), m_output({}) {}
 
             void parse()
             {
@@ -102,16 +105,32 @@ namespace der
                 return m_current().is(lexer::TOKENS::TOKEN_EOF);
             }
 
-            AstInfo m_parse_variable(bool is_const = false)
+            AstInfo m_parse_cast() {
+                der_debug("start");
+                m_expect_or(lexer::TOKENS::TOKEN_LESS_THAN, m_current(), "expected < after keyword 'ka'");
+                m_advance();
+                auto target_ty = parse_type();
+                m_advance();
+                m_expect_or(lexer::TOKENS::TOKEN_GREATER_THAN, m_current(), "expected > after keyword ka");
+                m_advance();
+                m_expect_or(lexer::TOKENS::TOKEN_OPEN_PAREN, m_current(), "expected ( after ka");
+                m_advance();
+                auto _expr = parse_expr(0);
+                m_expect_or(lexer::TOKENS::TOKEN_CLOSE_PAREN, m_current(), "expected ) after ka");
+                m_advance();
+                return {std::make_unique<ast::Cast>(std::move(target_ty), std::move(_expr.expr)), m_current().source_loc};
+            }
+
+            AstInfo m_parse_variable(const bool is_const = false)
             {
                 der_debug("start");
-                lexer::TokenHandle current = m_current();
+                const lexer::TokenHandle current = m_current();
                 m_expect_or(lexer::TOKENS::TOKEN_IDENTIFIER, current, "khass ikon identifier mn b3d 'dir'.");
-                std::string name = current.raw_value;
+                const std::string name = current.raw_value;
                 der_debug(name);
                 der_debug_e(m_current().raw_value);
                 m_advance();
-                auto nexc = m_current();
+                const auto nexc = m_current();
                 der_debug_e(nexc.raw_value);
                 m_expect_or(lexer::TOKENS::TOKEN_COLON, nexc, "nsiti ':'.");
                 m_advance();
@@ -121,7 +140,7 @@ namespace der
                 m_expect_or(lexer::TOKENS::TOKEN_EQUAL, m_current(), "nsiti '='.");
                 m_advance();
                 AstInfo value = parse_expr(0);
-                return AstInfo(ast::ptr<ast::Expr>(new ast::Variable(name, std::move(value.expr), std::move(ty), is_const)), value.loc);
+                return {std::make_unique<ast::Variable>(name, std::move(value.expr), std::move(ty), is_const), value.loc};
             }
 
             AstInfo m_parse_enum()
@@ -425,6 +444,11 @@ namespace der
                     der_debug("uhhh get address I guess?");
                     m_advance();
                     return AstInfo(ast::ptr<ast::Expr>(new ast::AddressOper(parse_expr(0).expr)), th.source_loc);
+                }
+                    case TOKENS::KEYWORD_KA: {
+                    der_debug("casting op");
+                    m_advance();
+                    return m_parse_cast();
                 }
                 case TOKENS::TOKEN_FOR:
                 {

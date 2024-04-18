@@ -63,6 +63,7 @@ namespace der
             TOKEN_CHAR,
             TOKEN_FOR,
             KEYWORD_JADID,
+            KEYWORD_KA,
             TOKEN_DOUBLE_QST
         };
 
@@ -193,6 +194,8 @@ namespace der
                             token = TOKENS::KEYWORD_JADID;
                         else if (temp == "tabit")
                             token = TOKENS::KEYWORD_TABIT;
+                        else if(temp == "ka")
+                            token = TOKENS::KEYWORD_KA;
                         else
                             token = TOKENS::TOKEN_IDENTIFIER;
 

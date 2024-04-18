@@ -1,19 +1,12 @@
 # derija
-low level statically typed prgoramming language that compiles to C, based on the Moroccan dialect darija.
+low level statically typed programming language that compiles to C, based on the Moroccan dialect darija.
 > NOTE: the language is not memory safe and requires manual memory management.
 # code example
-```c++
-jbed std.io;
+<img src="https://i.imgur.com/PEgIPIJ.png">
 
-dalaton main(): walo {
-    io.kteb("Salam, 3alam !\n");
-};
-```
-
+it was a very stupid and bad idea to use C as a backend, biggest mistake of the century
 
 # TODO
-## the language itself
-### urgent shit
 - [x] unary ops
 - [X] for loop support
 - [x] struct support
@@ -22,35 +15,24 @@ dalaton main(): walo {
 - [x] instance handling
 - [x] use of struct/enums in struct types as well
 - [x] use of structs/enum in types
-- [ ] pointers support
+- [x] pointers support
+- [x] array as arguments/returns
+
+- [ ] move to a runtime instead !!
+- [ ] pointer casting
+- [ ] variadic args
 - [ ] better error messages
 - [ ] file source code imports
 - [ ] C compatibility
-- [ ] memory allocation
-
-### not that urgent
+- [ ] memory allocation 
 - [ ] generics support
 - [ ] constant types
-- [ ] error handling (no idea how?????!!! but ill figure out prolly requires moving to something like LLVM)
+- [ ] error handling
 - [ ] nested scopes
 - [ ] named scopes
-- [ ] implement @skip_ir to skip the IR codegen and write C code instead
-- [ ] variadic args
 - [ ] function overloading
-
-### later???
 - [ ] algebraic enums
-
-## stdlib
-- [ ] write it lmao
-- [ ] memory allocation
-
-# What could be improved
-- [ ] use LLVM instead or own IR tm instead of C codegen.
-- [ ] use a much more effecient type checking algorithm.
+- [ ] standard library
 - [ ] Memory Safety, GC/Borrow Checker/RAII....?????!!!!!!.....
 - [ ] Implement safety checks ???
 - [ ] Optimizations
-
-# Reminder
-NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, NO FOKING IMPLICIT CONVERSIONS, 

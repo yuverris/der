@@ -44,6 +44,7 @@ namespace der
             ENUM_INSTANCE,
             POINTER_DEREF,
             GET_ADDRESS,
+            CAST,
             DUMMY
         };
 
@@ -183,7 +184,7 @@ namespace der
             }
             std::string debug() const override
             {
-                return "Ty.Pointer";
+                return std::format("Ty.Pointer<{}>", victim->debug());
             }
             bool is_same(TypeHandle *other) const override
             {
@@ -213,6 +214,26 @@ namespace der
             bool is_same(TypeHandle *other) const override
             {
                 return false;
+            }
+        };
+        struct Cast: TypeHandle {
+            std::unique_ptr<types::TypeHandle> to_ty;
+            std::unique_ptr<types::TypeHandle> victim;
+            Cast(std::unique_ptr<types::TypeHandle> to_ty, std::unique_ptr<types::TypeHandle> victim): to_ty(std::move(to_ty)), victim(std::move(victim)) {}
+            Cast(const Cast& other): to_ty(other.to_ty->clone()), victim(other.victim->clone()) {}
+
+            std::string debug() const override {
+                return std::format("Ty.Cast<to: {}, from: {}>", to_ty->debug(), victim->debug());
+            }
+            std::unique_ptr<TypeHandle> clone() const override {
+                return std::make_unique<Cast>(*this);
+            }
+            bool is_same(TypeHandle *) const override {
+                return false;
+            }
+
+            types::TYPES get_ty() const override {
+                return types::TYPES::CAST;
             }
         };
         struct GetAddress : TypeHandle

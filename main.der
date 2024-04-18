@@ -1,0 +1,14 @@
+jism No9ta {
+    x: ra9m;
+    y: ra9m;
+};
+
+dalaton no9_plus(n: No9ta): ra9m {
+    rje3 n.x + n.y;
+};
+
+dalaton main(): ra9m {
+    dir f: No9ta = jadid No9ta{x: 78, y: 4};
+    rje3 no9_plus(f);
+};
+

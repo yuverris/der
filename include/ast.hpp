@@ -356,6 +356,24 @@ namespace der
             }
         };
 
+        struct Cast: Expr {
+            std::unique_ptr<types::TypeHandle> to_ty;
+            std::unique_ptr<Expr> victim;
+            Cast(std::unique_ptr<types::TypeHandle> to_ty, std::unique_ptr<Expr> victim): to_ty(std::move(to_ty)), victim(std::move(victim)) {}
+            Cast(const Cast& other): to_ty(other.to_ty->clone()), victim(other.victim->clone()) {}
+
+            std::string debug() const override {
+                return std::format("Cast to {}: {}", to_ty->debug(), victim->debug());
+            }
+            ptr<Expr> clone() const override {
+                return std::make_unique<Cast>(*this);
+            }
+
+            std::unique_ptr<types::TypeHandle> get_ty() const override {
+                return std::unique_ptr<types::TypeHandle>(new types::Cast(to_ty->clone(), victim->get_ty()));
+            }
+        };
+
         struct Bool : Expr
         {
             bool value;

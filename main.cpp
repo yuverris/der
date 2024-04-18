@@ -1,93 +1,29 @@
 #include <iostream>
 #include <format>
+#include <fstream>
 #include "include/lexer.hpp"
 #include "include/parser.hpp"
 #include "include/types.hpp"
 #include "include/typechecker.hpp"
 
-int main()
+int main(int argc, char** argv)
 {
-    std::string src_code = R"(
-
-ti3dad Cmp {
-    AAA, BBB, CCC
-};
-
-jism No9ta {
-    x: ra9m;
-    y: ra9m;
-};
-dalaton dkhel(a: ktba): ktba {
-    rje3 "aaa";
-};
-
-
-dalaton kteb(a: ktba): ktba {
-    rje3 "aaa";
-};
-
-dalaton l_ra9m(a: ktba): ra9m {
-    rje3 8;
-};
-
-dalaton test(a: ra9m, b: ra9m): ra9m {
-    ila a < b {
-        rje3 6*7;
-    } awla {
-        rje3 9;
-    };
-};
-
-dalaton l7ajm(a: ktba): ra9m {
-    lkola x: 9...99 {
-       rje3 5;
-    };
-    dir y: [ra9m; 5] = [1,7,8,9,7];
-    y[y[7]];
-};
-
-dalaton hehe(a: ra9m): ra9m {
-    rje3 5;
-};
-
-
-dalaton mini_calc(a: ra9m, op: harf, b: ra9m): ra9m {
-    op == '+' ?? rje3 a + b;
-    op == '-' ?? rje3 a - b;
-    op == '/' ?? rje3 a / b;
-    op == '*' ?? rje3 a * b;
-};
-
-dalaton main(): ra9m {
-    test(5, 7);
-    hehe(9);
-    "Salam, 3alam!" |> kteb();
-
-    dir x: *ra9m = &78;
-    x = 89 + -7 * +9;
-    dir z: [ra9m; 3] = [7,8,9];
-    dir y: harf = "azerty"[7];
-    
-
-    dir f: Cmp = Cmp.AAA;
-
-    dir w: No9ta = jadid No9ta{x: 78, y: 77};
-
-    dir j: ra9m = w.x;
-
-    "uwu";
-    9 == 7;
-    
-    rje3 0;
-};
-)";
-    auto xyz = der::lexer::Lexer(src_code);
+    if(argc < 2) {
+        std::cout << "no input file specified.";
+        return 1;
+    }
+    std::ifstream file{argv[1]};
+    std::string filename = argv[1];
+    std::string input = {};
+    std::string tmp;
+    while (std::getline(file, tmp)) (input += tmp) += '\n';
+    auto xyz = der::lexer::Lexer(input);
     xyz.lex();
     auto abc = der::parser::Parser(xyz.get_output());
     try
     {
         abc.parse();
-        for (auto a : abc.get_output())
+        for (const auto& a : abc.get_output())
         {
             std::cout << a.expr->debug() << '\n';
         }
